@@ -28,7 +28,7 @@ jobs:
     - name: Download and install PS5 Payload SDK
       run: |
         mkdir -p /tmp/sdk-extract
-        mkdir -p ../ps5-payload-sdk/install/include
+        mkdir -p ../ps5-payload-sdk/install
         
         echo "=== Downloading SDK ==="
         if wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip -O /tmp/sdk.zip; then
@@ -38,10 +38,28 @@ jobs:
           unzip -q /tmp/sdk.zip -d /tmp/sdk-extract
         fi
         
-        # نسخ الملفات إلى مجلد include الذي يستهدفه الـ Makefile بدقة
-        cp -r /tmp/sdk-extract/ps5-payload-sdk/target/include/* ../ps5-payload-sdk/install/include/
+        echo "=== Mapping SDK Elements Correctly ==="
         
-        # إنشاء رابط مباشر لملف kernel.h ليتوافق مع استدعاء كود السي الحالي
+        # 1. نسخ مجلد الـ toolchain بالكامل لمسار التثبيت
+        TOOLCHAIN_DIR=$(find /tmp/sdk-extract -name "toolchain" -type d | head -n 1)
+        if [ ! -z "$TOOLCHAIN_DIR" ]; then
+          cp -r "$TOOLCHAIN_DIR" ../ps5-payload-sdk/install/
+        fi
+        
+        # 2. إنشاء ونسخ محتويات مجلد الـ include
+        INCLUDE_DIR=$(find /tmp/sdk-extract -name "include" -type d | head -n 1)
+        if [ ! -z "$INCLUDE_DIR" ]; then
+          mkdir -p ../ps5-payload-sdk/install/include
+          cp -r "$INCLUDE_DIR"/* ../ps5-payload-sdk/install/include/
+        fi
+        
+        # 3. نسخ مجلد الـ lib إن وجد
+        LIB_DIR=$(find /tmp/sdk-extract -name "lib" -type d | head -n 1)
+        if [ ! -z "$LIB_DIR" ]; then
+          cp -r "$LIB_DIR" ../ps5-payload-sdk/install/
+        fi
+        
+        # 4. توفير نسخة موازية لملف kernel.h لضمان عدم فشل الاستدعاء المباشر
         if [ -f "../ps5-payload-sdk/install/include/sys/kernel.h" ]; then
           cp ../ps5-payload-sdk/install/include/sys/kernel.h ../ps5-payload-sdk/install/include/kernel.h
         fi
