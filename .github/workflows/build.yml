@@ -18,9 +18,20 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y clang lld llvm make wget unzip python3 python3-pyelftools gcc-multilib g++-multilib
 
-    - name: Create toolchain symlinks
+    - name: Create smart toolchain wrappers
       run: |
-        sudo ln -sf /usr/bin/clang /usr/local/bin/x86_64-prospero-elf-gcc
+        # بناء مجمع ذكي يفصل بين مرحلة التجميع ومرحلة الربط الخاصة بالـ كونسول
+        sudo tee /usr/local/bin/x86_64-prospero-elf-gcc << 'EOF'
+        #!/bin/bash
+        if [[ " $* " == *" -c "* ]]; then
+          exec clang -target x86_64-pc-freebsd "$@"
+        else
+          exec clang -target x86_64-pc-freebsd -fuse-ld=lld -nostdlib "$@"
+        fi
+        EOF
+        sudo chmod +x /usr/local/bin/x86_64-prospero-elf-gcc
+        
+        # الروابط المساعدة للأدوات الأخرى
         sudo ln -sf /usr/bin/ld.lld /usr/local/bin/x86_64-prospero-elf-ld
         sudo ln -sf /usr/bin/llvm-objcopy /usr/local/bin/x86_64-prospero-elf-objcopy
         sudo ln -sf /usr/bin/llvm-ar /usr/local/bin/x86_64-prospero-elf-ar
@@ -39,34 +50,28 @@ jobs:
         fi
         
         echo "=== Mapping SDK Elements Correctly ==="
-        
-        # 1. نسخ مجلد الـ toolchain
         TOOLCHAIN_DIR=$(find /tmp/sdk-extract -name "toolchain" -type d | head -n 1)
         if [ ! -z "$TOOLCHAIN_DIR" ]; then
           cp -r "$TOOLCHAIN_DIR" ../ps5-payload-sdk/install/
         fi
         
-        # 2. نسخ مجلد الـ include الأساسي
         INCLUDE_DIR=$(find /tmp/sdk-extract -name "include" -type d | head -n 1)
         if [ ! -z "$INCLUDE_DIR" ]; then
           mkdir -p ../ps5-payload-sdk/install/include
           cp -r "$INCLUDE_DIR"/* ../ps5-payload-sdk/install/include/
         fi
         
-        # 3. نسخ مجلد الـ lib
         LIB_DIR=$(find /tmp/sdk-extract -name "lib" -type d | head -n 1)
         if [ ! -z "$LIB_DIR" ]; then
           cp -r "$LIB_DIR" ../ps5-payload-sdk/install/
         fi
         
-        # 4. توليد ملف kernel.h مخصص ومتوافق مع دالات الطاقة في مشروعك
         cat << 'EOT' > ../ps5-payload-sdk/install/include/kernel.h
         #ifndef PS5_POWER_KERNEL_H
         #define PS5_POWER_KERNEL_H
 
         #include <sys/types.h>
 
-        // Prototypes for PS5 libkernel power functions used in main.c
         int sceKernelShutdownSystem(void);
         int sceKernelReboot(void);
         int sceKernelSuspendSystem(void);
