@@ -27,14 +27,24 @@ jobs:
 
     - name: Download and install PS5 Payload SDK
       run: |
-        wget https://github.com/ps5-payload-dev/sdk/releases/latest/latest/download/ps5-payload-sdk.zip || wget https://github.com/ps5-payload-dev/sdk/releases/download/v0.1/ps5-payload-sdk.zip || wget https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip
-        sudo unzip -d /opt ps5-payload-sdk.zip || true
-        mkdir -p ../ps5-payload-sdk
-        ln -s /opt/ps5-payload-sdk ../ps5-payload-sdk/install
+        # تحميل الملف
+        wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip || wget -q https://github.com/ps5-payload-dev/sdk/releases/download/v0.1/ps5-payload-sdk.zip
+        
+        # فك الضغط في مجلد مؤقت للتحقق من الهيكلية
+        mkdir -p /tmp/sdk-extract
+        unzip -q ps5-payload-sdk.zip -d /tmp/sdk-extract
+        
+        # إنشاء المجلد الصحيح الذي يطلبه الـ Makefile
+        mkdir -p ../ps5-payload-sdk/install
+        
+        # نسخ الملفات بشكل صحيح سواء كانت داخل مجلد فرعي أو مباشرة
+        if [ -d "/tmp/sdk-extract/ps5-payload-sdk" ]; then
+          cp -r /tmp/sdk-extract/ps5-payload-sdk/* ../ps5-payload-sdk/install/
+        else
+          cp -r /tmp/sdk-extract/* ../ps5-payload-sdk/install/
+        fi
 
     - name: Build payload
-      env:
-        PS5_PAYLOAD_SDK: /opt/ps5-payload-sdk
       run: |
         make
 
