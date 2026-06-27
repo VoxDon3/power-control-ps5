@@ -16,7 +16,14 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang lld make wget unzip python3 python3-pyelftools
+        sudo apt-get install -y clang lld llvm make wget unzip python3 python3-pyelftools
+
+    - name: Create toolchain symlinks
+      run: |
+        sudo ln -sf /usr/bin/clang /usr/local/bin/x86_64-prospero-elf-gcc
+        sudo ln -sf /usr/bin/ld.lld /usr/local/bin/x86_64-prospero-elf-ld
+        sudo ln -sf /usr/bin/llvm-objcopy /usr/local/bin/x86_64-prospero-elf-objcopy
+        sudo ln -sf /usr/bin/llvm-ar /usr/local/bin/x86_64-prospero-elf-ar
 
     - name: Download and install PS5 Payload SDK
       run: |
