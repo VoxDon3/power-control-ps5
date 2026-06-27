@@ -27,21 +27,53 @@ jobs:
 
     - name: Download and install PS5 Payload SDK
       run: |
-        # تحميل الملف
-        wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip || wget -q https://github.com/ps5-payload-dev/sdk/releases/download/v0.1/ps5-payload-sdk.zip
-        
-        # فك الضغط في مجلد مؤقت للتحقق من الهيكلية
         mkdir -p /tmp/sdk-extract
-        unzip -q ps5-payload-sdk.zip -d /tmp/sdk-extract
-        
-        # إنشاء المجلد الصحيح الذي يطلبه الـ Makefile
         mkdir -p ../ps5-payload-sdk/install
         
-        # نسخ الملفات بشكل صحيح سواء كانت داخل مجلد فرعي أو مباشرة
-        if [ -d "/tmp/sdk-extract/ps5-payload-sdk" ]; then
-          cp -r /tmp/sdk-extract/ps5-payload-sdk/* ../ps5-payload-sdk/install/
+        echo "=== 1. Trying to download pre-built SDK release ==="
+        if wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip -O /tmp/sdk.zip; then
+          unzip -q /tmp/sdk.zip -d /tmp/sdk-extract
+        elif wget -q https://github.com/ps5-payload-dev/sdk/releases/download/v0.1/ps5-payload-sdk.zip -O /tmp/sdk.zip; then
+          unzip -q /tmp/sdk.zip -d /tmp/sdk-extract
+        fi
+        
+        # البحث عن ملف kernel.h داخل المجلد المستخرج
+        KERNEL_FILE=$(find /tmp/sdk-extract -name "kernel.h" | head -n 1)
+        
+        if [ ! -z "$KERNEL_FILE" ]; then
+          echo "✅ Found kernel.h in ZIP artifact at: $KERNEL_FILE"
+          BASE_DIR=$(dirname $(dirname "$KERNEL_FILE"))
+          echo "Copying SDK files from $BASE_DIR to ../ps5-payload-sdk/install/"
+          cp -r "$BASE_DIR"/* ../ps5-payload-sdk/install/
         else
-          cp -r /tmp/sdk-extract/* ../ps5-payload-sdk/install/
+          echo "⚠️ Pre-built SDK ZIP failed or incomplete. Switching to Git Clone Git fallback..."
+          rm -rf ../ps5-payload-sdk
+          git clone --recursive https://github.com/ps5-payload-dev/sdk.git ../ps5-payload-sdk
+          
+          # البحث عن ملف kernel.h في السورس كود المستنسخ
+          REPO_KERNEL=$(find ../ps5-payload-sdk -name "kernel.h" | head -n 1)
+          if [ ! -z "$REPO_KERNEL" ]; then
+            REPO_INCLUDE_DIR=$(dirname "$REPO_KERNEL")
+            echo "✅ Found source kernel.h at: $REPO_KERNEL"
+            mkdir -p ../ps5-payload-sdk/install/include
+            cp -r "$REPO_INCLUDE_DIR"/* ../ps5-payload-sdk/install/include/
+            
+            # محاولة نسخ مجلد المكتبات المرافقة إن وجد
+            REPO_LIB=$(find ../ps5-payload-sdk -name "lib" -type d | head -n 1)
+            if [ ! -z "$REPO_LIB" ]; then
+              cp -r "$REPO_LIB" ../ps5-payload-sdk/install/
+            fi
+          fi
+        fi
+        
+        echo "=== 2. Verifying installation paths ==="
+        if [ -f "../ps5-payload-sdk/install/include/kernel.h" ]; then
+          echo "🚀 Perfect! kernel.h is exactly where the Makefile expects it."
+        else
+          echo "❌ Critical Error: kernel.h could not be positioned."
+          echo "Listing full directory structure for debugging:"
+          ls -R ../ps5-payload-sdk || true
+          exit 1
         fi
 
     - name: Build payload
