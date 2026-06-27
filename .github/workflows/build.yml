@@ -16,20 +16,23 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang lld make wget unzip
+        sudo apt-get install -y clang lld make wget unzip python3 python3-pyelftools
 
     - name: Download and install PS5 Payload SDK
       run: |
         wget https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip
-        unzip ps5-payload-sdk.zip -d ps5-payload-sdk
+        sudo unzip -d /opt ps5-payload-sdk.zip
+        mkdir -p ../ps5-payload-sdk
+        ln -s /opt/ps5-payload-sdk ../ps5-payload-sdk/install
 
     - name: Build payload
+      env:
+        PS5_PAYLOAD_SDK: /opt/ps5-payload-sdk
       run: |
-        cd power_control
         make
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Control-Power-PS5-Bin
-        path: power_control/*.bin
+        path: "*.bin"
