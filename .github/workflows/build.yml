@@ -1,0 +1,36 @@
+name: Build PS5 Power Control Payload
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً من الموقع
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Compiler Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential clang lld llvm
+
+    - name: Build PS5 Payload SDK
+      run: |
+        cd ps5-payload-sdk
+        make
+
+    - name: Build Power Control Payload
+      run: |
+        cd power_control
+        make
+
+    - name: Upload Compiled Binary
+          uses: actions/upload-artifact@v4
+          with:
+            name: power_control_bin
+            path: power_control/power_control_ps5.bin
+
